@@ -23,6 +23,7 @@ The system is engineered as a **Hybrid Monorepo** encompassing three integrated 
 - [Conversational State Machine & Persistence](#conversational-state-machine--persistence)
 - [Administrative Dashboard](#administrative-dashboard)
 - [Real-Time Event Dispatching (WebSockets)](#real-time-event-dispatching-websockets)
+- [Security, Privacy & Cybersecurity Architecture](#security-privacy--cybersecurity-architecture)
 - [Local Installation & Setup](#local-installation--setup)
 - [Environment Configuration](#environment-configuration)
 - [Infrastructure & Deployment (Railway)](#infrastructure--deployment-railway)
@@ -284,6 +285,31 @@ flowchart TD
   }
   ```
 - **Operational Result:** All active administrative sessions update schedule matrices immediately without requiring manual browser refreshes.
+
+---
+
+## Security, Privacy & Cybersecurity Architecture
+
+The platform implements defense-in-depth principles across its application, data, and AI orchestration layers:
+
+### 1. Application & Session Hardening
+- **HTTP-Only Cookie Management:** Session tokens are delivered with `HttpOnly` and `SameSite=Lax` flags, preventing client-side script access and mitigating Cross-Site Scripting (XSS) token theft and Cross-Site Request Forgery (CSRF).
+- **Edge Authentication Gate:** A Next.js edge middleware evaluates cryptographic tokens prior to route execution, blocking unauthorized access to `/dashboard/*` before server components render.
+- **Strict CORS & API Filtering:** FastAPI is configured with explicit origin whitelists and credentials control, preventing unauthorized cross-origin requests.
+
+### 2. Data Protection & Schema Segregation
+- **SQL Injection Prevention:** All relational and vector operations leverage SQLAlchemy ORM and parameterized queries, entirely preventing SQL injection (SQLi) vectors.
+- **Architectural Schema Partitioning:** Conversational snapshots and agent thread state reside in an isolated `langgraph` PostgreSQL schema, decoupling operational memory from core transactional entities in the `public` schema.
+- **PII Minimization:** The system enforces strict data minimization. Sensitive government identifiers (such as SSNs or Alien Registration Numbers) are never requested or stored. Stored client data is limited to Telegram identifiers and booking logistics.
+
+### 3. AI Safety & Prompt Injection Mitigation
+- **Two-Tier Intent Classification Pipeline:** Incoming user inputs pass through a strict semantic classifier prior to generation, separating raw conversational inputs from execution subgraphs.
+- **Deterministic Legal Guardrail (UPL Defense):** Programmatic guardrails detect inquiries demanding legal opinions or case merits, deterministically routing them to licensed human counsel and eliminating liability for unauthorized practice of law.
+- **Constrained Execution Graphs:** The LangGraph state machine enforces deterministic node transitions, preventing generative models from executing unauthorized database modifications or uncontrolled tooling.
+
+### 4. Concurrency & Denial-of-Service Defense
+- **Atomic Booking Locks:** In-memory asynchronous locks (`booking_locks`) isolate concurrent callback events, preventing race conditions and double-booking attacks.
+- **Telegram Debounce & Anti-Flooding:** Callback query debounce mechanisms instantly discard duplicated taps, preventing event loop starvation.
 
 ---
 
