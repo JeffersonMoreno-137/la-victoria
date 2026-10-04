@@ -1,160 +1,164 @@
-# 🏛️ La Victoria Foundation — Legal Assistance & Scheduling System
+# La Victoria Foundation — Legal Assistance & Scheduling System
 
-Comprehensive bilingual (Spanish / English) legal community assistance, paperwork guidance, and intelligent appointment scheduling system built for **La Victoria Foundation**, with active branches in Queens, NY and Dallas, TX.
+An enterprise-grade, bilingual (Spanish / English) legal community assistance, paperwork orientation, and automated appointment scheduling platform designed as a technical case study for **La Victoria Foundation**, operating across regional offices in Queens, NY and Dallas, TX.
 
-Architected as a **Hybrid Monorepo** integrating:
-1. **Virtual Assistant Agent (VictorIA):** Conversational Telegram bot (`aiogram 3.x` + `LangGraph` + Vector RAG + UPL Guardrails + PostgreSQL Checkpointer in dedicated `langgraph` schema).
-2. **Web Admin Dashboard:** Responsive admin panel built with `Next.js 14` (Google Stitch UI) featuring real-time multi-attorney calendar views (`WebSockets`), appointment management, MVP environment banners, and instant bilingual switching.
-3. **Backend API & Database:** `FastAPI` + `PostgreSQL` structured with isolated schemas (`public` for business logic and `langgraph` for conversational state) with the `pgvector` vector extension.
+> **Project Notice & Context**  
+> This project is an **independent case study and proof of concept (PoC)** developed for an institutional presentation and technical feasibility evaluation for La Victoria Foundation. It is not an officially affiliated, contracted, or production-deployed platform of the organization. All attorney rosters, branch schedules, booking records, and user scenarios are simulated for demonstration and architectural validation purposes.
 
----
-
-## 📌 Table of Contents
-- [Monorepo Architecture](#-monorepo-architecture)
-- [Tech Stack](#-tech-stack)
-- [Demo Notices & MVP Environment](#-demo-notices--mvp-environment)
-- [Key Features](#-key-features)
-- [Business Rules & Constraints](#-business-rules--constraints)
-- [Legal Guardrail: UPL (Unauthorized Practice of Law)](#-legal-guardrail-upl-unauthorized-practice-of-law)
-- [Data Model & PostgreSQL Schemas](#-data-model--postgresql-schemas)
-- [Conversational Flow & LangGraph Persistence](#-conversational-flow--langgraph-persistence)
-- [Web Admin Dashboard](#-web-admin-dashboard)
-- [Real-Time Synchronization (WebSockets)](#-real-time-synchronization-websockets)
-- [Local Installation & Setup](#-local-installation--setup)
-- [Environment Variables](#-environment-variables)
-- [Deployment Strategy (Railway)](#-deployment-strategy-railway)
-- [License & Copyright](#-license--copyright)
+The system is engineered as a **Hybrid Monorepo** encompassing three integrated tiers:
+1. **Conversational AI Agent (VictorIA):** Asynchronous Telegram bot (`aiogram 3.x`) powered by `LangGraph`, vector-based RAG (`pgvector`), deterministic UPL guardrails, and persistent multi-turn thread checkpoints stored in an isolated PostgreSQL schema.
+2. **Administrative Operations Dashboard:** Responsive web dashboard built with `Next.js 14` (Google Stitch UI) delivering real-time multi-attorney agenda synchronization (`WebSockets`), manual booking administration, and instant bilingual localization.
+3. **Backend Service & Data Layer:** Asynchronous `FastAPI` service with partitioned relational models, transactional locks for concurrent bookings, and embedded vector search capabilities.
 
 ---
 
-## 🏗️ Monorepo Architecture
+## Table of Contents
+- [Monorepo Architecture](#monorepo-architecture)
+- [Technology Stack](#technology-stack)
+- [Case Study Scope & Environment](#case-study-scope--environment)
+- [Core Capabilities](#core-capabilities)
+- [Business Logic & Scheduling Constraints](#business-logic--scheduling-constraints)
+- [Legal Guardrail: Unauthorized Practice of Law (UPL)](#legal-guardrail-unauthorized-practice-of-law-upl)
+- [Data Architecture & PostgreSQL Schemas](#data-architecture--postgresql-schemas)
+- [Conversational State Machine & Persistence](#conversational-state-machine--persistence)
+- [Administrative Dashboard](#administrative-dashboard)
+- [Real-Time Event Dispatching (WebSockets)](#real-time-event-dispatching-websockets)
+- [Local Installation & Setup](#local-installation--setup)
+- [Environment Configuration](#environment-configuration)
+- [Infrastructure & Deployment (Railway)](#infrastructure--deployment-railway)
+- [Attribution & Rights](#attribution--rights)
+
+---
+
+## Monorepo Architecture
 
 ```
 la-victoria-monorepo/
 ├── apps/
-│   ├── backend/                 # FastAPI API, LangGraph Agent, and Telegram Bot
+│   ├── backend/                 # FastAPI service, LangGraph state machine, and Telegram bot
 │   │   ├── app/
-│   │   │   ├── agent/           # LangGraph graph with PostgresSaver, prompts, and UPL guardrails
+│   │   │   ├── agent/           # LangGraph graph, PostgresSaver integration, and UPL guardrails
 │   │   │   ├── api/             # REST endpoints (/api/appointments, /api/branches)
-│   │   │   ├── core/            # pydantic-settings configuration
-│   │   │   ├── db/              # SQLAlchemy session and sync/async connectors
-│   │   │   ├── models/          # Business models in public schema (entities.py)
-│   │   │   ├── rag/             # Markdown ingestion, embeddings, and similarity search
-│   │   │   ├── services/        # WebSocket ConnectionManager and booking_service with locks
-│   │   │   └── telegram/        # aiogram bot with handlers, debounce, and anti-duplicate logic
-│   │   ├── scripts/             # seed_db.py (Database seeding for branches, attorneys, and bookings)
-│   │   └── tests/               # Unit tests for guardrails and business logic
-│   └── frontend/                # Administrative Dashboard in Next.js 14
-│       ├── public/              # Institutional logo, assets, and compiled CSS
+│   │   │   ├── core/            # Configuration management via pydantic-settings
+│   │   │   ├── db/              # SQLAlchemy session lifecycle (sync and async engines)
+│   │   │   ├── models/          # Relational entities defined in the public schema (entities.py)
+│   │   │   ├── rag/             # Markdown ingestion pipeline, embeddings, and similarity search
+│   │   │   ├── services/        # WebSocket ConnectionManager and concurrency-locked booking service
+│   │   │   └── telegram/        # aiogram bot handlers, message debounce, and anti-duplicate logic
+│   │   ├── scripts/             # Database seeding scripts (branches, attorneys, initial appointments)
+│   │   └── tests/               # Automated unit tests for UPL guardrails and business logic
+│   └── frontend/                # Administrative dashboard built on Next.js 14
+│       ├── public/              # Brand assets, vector icons, and static styles
 │       └── src/
 │           ├── app/
-│           │   ├── api/auth/    # Route handlers for login (cookie-tolerant) and logout
-│           │   ├── dashboard/   # Multi-attorney calendar, custom popover, and MVP banner
-│           │   └── login/       # Login screen with glassmorphism card, animated orbs, and MVP disclaimer
-│           └── middleware.ts    # Route protection for /dashboard/* via session cookie
+│           │   ├── api/auth/    # Authentication route handlers (session cookie lifecycle)
+│           │   ├── dashboard/   # Multi-attorney agenda view, custom date popover, and MVP banner
+│           │   └── login/       # Authentication screen with glassmorphic layout and disclaimer
+│           └── middleware.ts    # Edge route protection for /dashboard/* endpoints
 ├── packages/
-│   └── knowledge-base/          # Markdown RAG knowledge base
+│   └── knowledge-base/          # Source documentation for RAG vectorization
 │       ├── immigration_services.md
 │       └── itin_faq.md
-├── docker-compose.yml           # PostgreSQL 16 container with pgvector extension
-└── railway.json                 # Automated Nixpacks deployment without custom Dockerfiles
+├── docker-compose.yml           # Local PostgreSQL 16 container definition with pgvector
+└── railway.json                 # Declarative deployment specification via Nixpacks
 ```
 
 ---
 
-## ⚡ Tech Stack
+## Technology Stack
 
-| Component | Technology | Purpose |
+| Layer | Technology | Operational Function |
 |---|---|---|
-| **LLM Model** | OpenAI `gpt-5.6-luna` | Conversational reasoning and entity extraction |
-| **Embeddings** | `text-embedding-3-small` | Semantic search (RAG) with 1536 dimensions |
-| **AI Orchestrator** | `LangGraph` + `LangChain` | Stateful graph execution with persistent PostgreSQL memory |
-| **AI Checkpointer** | `langgraph-checkpoint-postgres` | Snapshots and conversational states in `langgraph` schema |
-| **Backend REST & WS** | `FastAPI` + `Uvicorn` | High-throughput asynchronous API and bidirectional WebSockets |
-| **Messaging Bot** | `aiogram 3.x` | Asynchronous Telegram interaction handler |
-| **Database** | `PostgreSQL` + `pgvector` | ACID relational persistence and vector similarity search |
-| **Database Driver** | `SQLAlchemy 2.x`, `psycopg 3` | ORM data modeling and transactional connection pooling |
-| **Web Frontend** | `Next.js 14` (App Router) | Reactive administrative dashboard |
-| **Styles & UI** | `Tailwind CSS` + Vanilla CSS | Google Stitch UI design system, smooth `rounded-3xl` corners |
-| **Icons** | `Lucide React` | Clean, minimal vector iconography |
+| **LLM Inference** | OpenAI `gpt-5.6-luna` | Natural language understanding, intent classification, and entity extraction |
+| **Vector Embeddings** | `text-embedding-3-small` | 1536-dimensional dense vector embeddings for semantic retrieval (RAG) |
+| **Orchestration** | `LangGraph` + `LangChain` | Stateful conversation graphs with checkpointed PostgreSQL persistence |
+| **Checkpointer** | `langgraph-checkpoint-postgres` | Graph snapshot serialization stored under the dedicated `langgraph` schema |
+| **Backend Framework** | `FastAPI` + `Uvicorn` | Asynchronous REST endpoints and full-duplex WebSocket channels |
+| **Bot Gateway** | `aiogram 3.x` | Asynchronous Telegram event loop handling polling and callback queries |
+| **Database** | `PostgreSQL 16` + `pgvector` | ACID relational persistence with cosine distance vector indexing |
+| **Persistence Driver** | `SQLAlchemy 2.x`, `psycopg 3` | Asynchronous connection pooling and schema-bound ORM mapping |
+| **Frontend Framework** | `Next.js 14` (App Router) | Server-rendered React framework for administrative control |
+| **Styling & UI** | `Tailwind CSS` + Vanilla CSS | Google Stitch design guidelines with smooth container curvature |
+| **Icon Library** | `Lucide React` | Lightweight SVG icons |
 
 ---
 
-## ⚠️ Demo Notices & MVP Environment
+## Case Study Scope & Environment
 
-Explicit visual notices are implemented across both authentication and the operational dashboard to clarify the MVP scope:
-- **Login Screen (`/login`):**
-  - Pulsing badge: `MVP ENVIRONMENT — DEMONSTRATION VERSION`.
-  - Legal disclaimer: *"This system is an MVP functional validation. All registered information, branch offices, and appointments correspond to simulated test data."*
-- **Scheduling Panel (`/dashboard`):**
-  - Stylized top banner with bilingual toggle:
-    - **EN:** `MVP ENVIRONMENT` — *"Demonstration Mode: All information, attorneys, and scheduled bookings are simulated test data."*
-    - **ES:** `ENTORNO MVP` — *"Modo Demostración: Toda la información, abogados y citas registradas corresponden a datos de prueba simulados."*
+To maintain full transparency during technical reviews and evaluations, explicit indicators identify the non-production status of this project:
+
+- **Authentication Screen (`/login`):**
+  - Status indicator: `MVP ENVIRONMENT — DEMONSTRATION VERSION`.
+  - Contextual disclaimer: *"This system is an MVP functional validation. All registered information, branch offices, and appointments correspond to simulated test data."*
+- **Operational Dashboard (`/dashboard`):**
+  - Persistent top notification banner supporting real-time language toggling:
+    - **English:** `MVP ENVIRONMENT` — *"Demonstration Mode: All information, attorneys, and scheduled bookings are simulated test data."*
+    - **Spanish:** `ENTORNO MVP` — *"Modo Demostración: Toda la información, abogados y citas registradas corresponden a datos de prueba simulados."*
 
 ---
 
-## 🌟 Key Features
+## Core Capabilities
 
 ### 1. Virtual Community Assistant (VictorIA)
-- **Native Bilingual Support (ES/EN):** Users can interact directly in Spanish or English; the bot automatically detects the language and mirrors responses accordingly.
-- **Free-Form Text Input:** Users are never locked into rigid menus; they can freely inquire about ITIN applications, asylum processes, family petitions (I-130), adjustment of status (I-485), or notary services.
-- **Interactive Quick-Action Buttons:** Responses append contextual booking buttons (e.g., `[📅 Schedule ITIN Appointment]`).
-- **User Appointment Management (`/my_appointments` or `/mis_citas`):**
-  - View active appointments and allocated time slots.
-  - **Immediate cancellation:** Frees the slot in PostgreSQL and broadcasts the update to the dashboard.
-  - **Interactive rescheduling:** Guides the user through picking a new valid date and time slot.
-- **Anti-Duplicate & Concurrency Protection:**
-  - Fast drop of simultaneous or rapid-fire button taps (`booking_locks`).
-  - Pre-insert conflict validation preventing the same user from booking overlapping appointments.
+- **Zero-Friction Bilingual Interaction (ES/EN):** Accepts inquiries in Spanish or English without pre-selecting options. The agent automatically infers the input language and mirrors its response.
+- **Unstructured Inquiry Support:** Users can ask questions in natural language regarding ITIN applications, affirmative asylum filings, family preference petitions (I-130), adjustment of status (I-485), and consular notary services.
+- **Dynamic Action Injection:** Educational responses dynamically include contextual scheduling triggers (e.g., `[Schedule ITIN Appointment]`).
+- **Self-Service Appointment Management (`/my_appointments` or `/mis_citas`):**
+  - Real-time lookup of active bookings tied to the user's Telegram ID.
+  - **Single-click cancellation:** Updates appointment status to `CANCELLED`, releases the schedule block in PostgreSQL, and broadcasts the release via WebSockets.
+  - **Guided rescheduling:** Navigates the user through selecting a new valid date and available time slot.
+- **Concurrency & Anti-Duplicate Controls:**
+  - Fast drop of simultaneous or rapid-fire button taps via memory locks (`booking_locks`).
+  - Pre-commit uniqueness checks preventing duplicate bookings for the same user within overlapping hours.
   - Immediate user feedback via `callback.answer("Processing your appointment...")`.
 
-### 2. Live Administrative Dashboard
-- **Dynamic Branch Selector:** Seamlessly switch between Queens, NY and Dallas, TX, dynamically reloading attorneys and availability.
-- **Bilingual Interface Switcher (`🌐 EN` / `🌐 ES`):** Instantly translates 100% of the UI, data tables, metrics, banners, and controls.
-- **Polished Multi-Attorney Calendar:**
-  - Dedicated column for each of the 3 branch attorneys.
-  - Harmoniously integrated institutional lunch break (12:00 PM – 1:00 PM).
-  - Quick manual booking by clicking any available slot (`+ Schedule Appointment`).
-  - Clean appointment cards without redundant hour labels, showing client name and confirmation badge.
-- **Custom Date Popover:** Tailor-made modern calendar picker, rounded, with institutional blue accents, month/year navigation, and a quick-return "Today" shortcut.
-- **Session Security:**
-  - Edge middleware validating encrypted `session_token` cookie.
-  - Automatic redirect to `/login` for unauthenticated requests.
-  - Secure session destruction via `POST /api/auth/logout`.
+### 2. Administrative Operations Dashboard
+- **Dynamic Branch Context:** Seamlessly switch between Queens, NY and Dallas, TX, dynamically reloading attorney rosters and schedule blocks.
+- **Instant Interface Localization (`EN` / `ES`):** One-click toggle that updates 100% of interface labels, status indicators, schedule matrices, and modal dialogues.
+- **Multi-Attorney Schedule Matrix:**
+  - Dedicated operational lanes for all 3 branch attorneys.
+  - Built-in institutional lunch hour (12:00 PM – 1:00 PM) distinctly indicated across all days.
+  - Manual appointment creation by selecting any unoccupied block (`+ Schedule Appointment`).
+  - Clean card design displaying client identifiers and confirmation status badges.
+- **Custom Date Popover:** Tailored modal calendar with month/year navigation, active day highlighting, and a rapid reset to the current date.
+- **Edge Route Protection:**
+  - Edge middleware verifying an encrypted HTTP-only `session_token` cookie.
+  - Automated redirection to `/login` for unauthenticated requests.
+  - Explicit session termination via `POST /api/auth/logout`.
 
 ---
 
-## ⚖️ Business Rules & Constraints
+## Business Logic & Scheduling Constraints
 
-1. **Active Branches:**
+1. **Regional Offices:**
    - `NY_QUEENS`: 37-53 90th Street, Queens, NY 11372 (3 active attorneys).
    - `TX_DALLAS`: 17762 Preston Rd, Ste 200, Dallas, TX 75252 (3 active attorneys).
-2. **Operating Hours (EST Timezone):**
-   - **Monday to Friday:** 09:00 AM to 05:00 PM (Slots at 09:00, 10:00, 11:00, 13:00, 14:00, 15:00, 16:00). Total: **7 slots/attorney/day**.
-   - **Saturday:** 09:00 AM to 12:00 PM (Slots at 09:00, 10:00, 11:00). Total: **3 slots/attorney/day**.
+2. **Operating Hours (Eastern Standard Time - EST):**
+   - **Monday through Friday:** 09:00 AM to 05:00 PM (Available slots: 09:00, 10:00, 11:00, 13:00, 14:00, 15:00, 16:00). Capacity: **7 slots/attorney/day**.
+   - **Saturday:** 09:00 AM to 12:00 PM (Available slots: 09:00, 10:00, 11:00). Capacity: **3 slots/attorney/day**.
    - **Sunday:** Closed (0 slots).
-3. **Lunch Break:** Strictly blocked from 12:00 PM to 01:00 PM every day.
-4. **Advance Notice Requirement:** **Strict 24-hour minimum** prior to the appointment start time. Same-day bookings are prohibited.
-5. **Appointment Duration:** Fixed blocks of **1 hour**.
-6. **Attorney Assignment Algorithm:** *First Available* based on priority order (L1 -> L2 -> L3) within the selected branch, automatically assigning the first unbooked attorney for the requested slot.
+3. **Institutional Lunch Pause:** Systematically blocked from 12:00 PM to 01:00 PM on all operating days.
+4. **Advance Notice Requirement:** **Strict 24-hour minimum** prior to slot start time. Same-day bookings are programmatically prohibited.
+5. **Slot Duration:** Uniform 60-minute consultation blocks.
+6. **Attorney Allocation Algorithm:** *First Available* priority dispatch (L1 -> L2 -> L3) within the designated branch, assigning the first available attorney without calendar collisions.
 
 ---
 
-## 🛡️ Legal Guardrail: UPL (Unauthorized Practice of Law)
+## Legal Guardrail: Unauthorized Practice of Law (UPL)
 
-The platform enforces a **mandatory, non-bypassable guardrail** to strictly avoid the unauthorized practice of law (UPL):
-- **Strict Prohibition:** The virtual assistant **VictorIA** never issues legal assessments, probability of success on a case (e.g., *"will I be deported?"*, *"what are my chances of winning asylum?"*), or binding legal advice.
-- **Referral Protocol:** If a user requests legal counsel or an official opinion, VictorIA empathetically explains system limitations and redirects the user to schedule a consultation with the foundation's licensed attorneys.
-- **Disclaimer Banner:** All guidance responses explicitly note that the provided information is for educational and community orientation purposes only.
+The agent integrates a **deterministic, non-bypassable guardrail** designed to prevent the unauthorized practice of law (UPL):
+- **Absolute Restriction:** VictorIA is strictly prohibited from rendering legal assessments, evaluating probabilities of success (e.g., *"will I be deported?"*, *"what are my chances of obtaining asylum?"*), or providing actionable legal advice.
+- **Empathetic Referral:** When an inquiry requests legal evaluation, VictorIA acknowledges the user's situation, explains its statutory limitations as an automated assistant, and offers an immediate referral to schedule an appointment with a licensed staff attorney.
+- **Mandatory Notice:** All informational replies state that guidance is educational and does not constitute attorney-client privilege.
 
 ---
 
-## 🗄️ Data Model & PostgreSQL Schemas
+## Data Architecture & PostgreSQL Schemas
 
-To ensure clean separation of concerns, the database is partitioned into **two independent logical schemas**:
+The database leverages **two isolated logical schemas** within PostgreSQL to decouple domain business entities from agent orchestration state:
 
 ### 1. Business Schema (`public`)
-Stores foundation entities and relational business logic:
+Manages transactional domain models, foreign relationships, and vector embeddings:
 
 ```mermaid
 erDiagram
@@ -212,57 +216,57 @@ erDiagram
 ```
 
 ### 2. AI Orchestration Schema (`langgraph`)
-Isolates the internal tables of the LangGraph persistent checkpointer:
-- **`checkpoints`:** Snapshot history of state graphs indexed by user thread (`thread_id`).
-- **`checkpoint_blobs`:** Serialized storage for channels and state payload variables.
-- **`checkpoint_writes`:** Intermediate writes and state deltas generated by graph nodes.
-- **`checkpoint_migrations`:** Framework schema versioning managed by LangGraph.
+Dedicated storage managed by the `PostgresSaver` checkpointer:
+- **`checkpoints`:** State graph execution snapshots indexed by conversation thread (`thread_id`).
+- **`checkpoint_blobs`:** Binary serialization of graph channel states and variables.
+- **`checkpoint_writes`:** Intermediate write operations and deltas produced during node execution.
+- **`checkpoint_migrations`:** Framework-level schema version tracking.
 
 ---
 
-## 🧠 Conversational Flow & LangGraph Persistence
+## Conversational State Machine & Persistence
 
 ```mermaid
 flowchart TD
-    A[Incoming Telegram Message] --> B[Get or Create Client]
-    B --> C[Configure Thread ID = telegram_id]
+    A[Incoming Telegram Message] --> B[Retrieve or Create Client Record]
+    B --> C[Set Configurable Thread ID = telegram_id]
     C --> D[Detect Language & Classify Intent]
     
-    D -->|Informational / Procedure Question| E[RAG Node: pgvector Vector Search]
-    D -->|Direct Legal Inquiry| F[UPL Guardrail: Responsible Referral]
-    D -->|Booking Intent / Inline Buttons| G[Guided Booking Flow]
+    D -->|Informational / Procedural Inquiry| E[RAG Node: pgvector Semantic Search]
+    D -->|Direct Legal Advice Request| F[UPL Guardrail: Empathetic Referral]
+    D -->|Scheduling Intent / Action Buttons| G[Guided Booking Subgraph]
     
-    E --> H[gpt-5.6-luna Generation + LangGraph History]
-    F --> I[Disclaimer Message + Booking Shortcut]
-    G --> J[Selection: Branch -> Service -> Date +24h -> Slot]
+    E --> H[gpt-5.6-luna Synthesis + Conversation Context]
+    F --> I[Legal Notice + Consultation Scheduling Shortcut]
+    G --> J[Step Sequence: Branch -> Service -> Date +24h -> Slot]
     
-    H --> K[Inline Keyboard with Suggested Actions]
+    H --> K[Inline Keyboard with Suggested Follow-ups]
     I --> K
-    J --> L[Persist in PostgreSQL & Broadcast via WebSocket]
+    J --> L[Persist Appointment & Dispatch WebSocket Event]
     
-    K --> M[PostgresSaver: Commit Checkpoint to 'langgraph' Schema]
+    K --> M[PostgresSaver: Commit Snapshot to 'langgraph' Schema]
     L --> M
-    M --> N[Send Formatted Response to Telegram]
+    M --> N[Transmit Telegram Message]
 ```
 
 ---
 
-## 🖥️ Web Admin Dashboard
+## Administrative Dashboard
 
-- **Access URL:** `http://localhost:3000/dashboard`
-- **Login Screen (`/login`):**
-  - Centered glassmorphic card with official branding and MVP environment indicator.
-  - Organic backdrop with subtle animated blue and white light orbs.
-  - Default demo credential: `victoria`.
-- **Protected Routes:** Handled by [middleware.ts](file:///Users/jemoreno/DevLab/Cognitix/LaVictoria/apps/frontend/src/middleware.ts), guarding `/dashboard/*` from unauthorized sessions.
-- **Performance:** Production optimized via `next build && next start` with sub-200ms page transitions.
+- **Default Endpoint:** `http://localhost:3000/dashboard`
+- **Login Experience (`/login`):**
+  - Centered glassmorphic container with official brand marks and demonstration badge.
+  - Fluid background animation utilizing CSS-rendered lighting orbs.
+  - Demonstration access credential: `victoria`.
+- **Route Authorization:** Enforced via [middleware.ts](file:///Users/jemoreno/DevLab/Cognitix/LaVictoria/apps/frontend/src/middleware.ts), intercepting unauthenticated access to `/dashboard/*`.
+- **Runtime Performance:** Production builds (`next build && next start`) deliver sub-200ms route transitions.
 
 ---
 
-## 📡 Real-Time Synchronization (WebSockets)
+## Real-Time Event Dispatching (WebSockets)
 
-- **WS Endpoint:** `ws://localhost:8000/ws/appointments`
-- **Mechanism:** Whenever an appointment is created, cancelled, or rescheduled (from Telegram or through the dashboard REST API), the `ConnectionManager` broadcasts an event payload:
+- **WebSocket Route:** `ws://localhost:8000/ws/appointments`
+- **Event Protocol:** On any appointment creation, modification, or cancellation (originating either via the Telegram bot or the REST API), the `ConnectionManager` broadcasts an event payload:
   ```json
   {
     "event": "APPOINTMENT_CREATED",
@@ -279,69 +283,69 @@ flowchart TD
     }
   }
   ```
-- **Outcome:** Connected client browsers update their schedule grids in real time with zero page refresh required.
+- **Operational Result:** All active administrative sessions update schedule matrices immediately without requiring manual browser refreshes.
 
 ---
 
-## 🚀 Local Installation & Setup
+## Local Installation & Setup
 
 ### Prerequisites
-- **Node.js:** v18.x or v20.x and `npm`
-- **Python:** 3.9+ with `venv`
+- **Node.js:** v18.x or v20.x with `npm`
+- **Python:** 3.9+ with virtual environment tooling (`venv`)
 - **Docker & Docker Compose** (for PostgreSQL and pgvector)
 
-### Step 1: Start the Database Container
+### Step 1: Initialize Database Container
 ```bash
 docker-compose up -d
 ```
-*This starts PostgreSQL on port 5432 with the pgvector extension pre-installed.*
+*Initializes PostgreSQL on port 5432 with the pgvector extension enabled.*
 
-### Step 2: Configure & Run the Backend
+### Step 2: Configure & Launch Backend Service
 ```bash
 cd apps/backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
-# Seed the database (branches, attorneys, and initial demo bookings)
+# Populate baseline records (branches, attorneys, initial bookings)
 python3 scripts/seed_db.py
 
-# Ingest Markdown documentation into the pgvector store (RAG)
+# Ingest knowledge base documentation into vector store (RAG)
 python3 -m app.rag.ingestion
 
-# Start the FastAPI API server and Telegram Bot
+# Start FastAPI server and Telegram bot polling
 uvicorn app.main:app --port 8000 --host 0.0.0.0
 ```
 
-### Step 3: Configure & Run the Frontend Dashboard
+### Step 3: Configure & Launch Frontend Application
 ```bash
 cd apps/frontend
 npm install
 npm run build
 npm run start
 ```
-*The dashboard will be accessible at [http://localhost:3000](http://localhost:3000).*
+*The administrative dashboard is served at [http://localhost:3000](http://localhost:3000).*
 
 ---
 
-## 🔑 Environment Variables
+## Environment Configuration
 
-Create a `.env` file in the root of the monorepo:
+Create a `.env` file in the root directory:
 
 ```env
-# LLM & Embedding Settings
+# LLM & Embedding Services
 OPENAI_API_KEY=sk-...
 OPENAI_MODEL=gpt-5.6-luna
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 
-# Telegram Bot Token
+# Telegram Integration
 TELEGRAM_BOT_TOKEN=8721514801:...
 
 # Database Connections
 DATABASE_URL=postgresql+asyncpg://postgres:postgres_password_local@localhost:5432/lavictoriadb
 DATABASE_URL_SYNC=postgresql://postgres:postgres_password_local@localhost:5432/lavictoriadb
 
-# Admin Dashboard
+# Administrative Authentication
 ADMIN_PASSWORD=victoria
 SESSION_SECRET=la_victoria_super_secret_session_key_2026_secure!
 NEXT_PUBLIC_API_URL=http://localhost:8000
@@ -349,22 +353,22 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 
 ---
 
-## ☁️ Deployment Strategy (Railway)
+## Infrastructure & Deployment (Railway)
 
-The application is configured for deployment without manual Dockerfiles using **Nixpacks** via [railway.json](file:///Users/jemoreno/DevLab/Cognitix/LaVictoria/railway.json):
+The codebase is structured for zero-configuration deployments via **Nixpacks** using [railway.json](file:///Users/jemoreno/DevLab/Cognitix/LaVictoria/railway.json):
 
 1. **Backend Service:**
-   - Root directory: `apps/backend`
+   - Root path: `apps/backend`
    - Start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
 2. **Frontend Service:**
-   - Root directory: `apps/frontend`
+   - Root path: `apps/frontend`
    - Build command: `npm run build`
    - Start command: `npm run start -p $PORT`
 3. **Database Service:**
-   - Railway managed PostgreSQL instance with `vector` extension and `langgraph` schema auto-configured on startup.
+   - Railway managed PostgreSQL instance with `vector` extension and `langgraph` schema initialized on first run.
 
 ---
 
-## 📄 License & Copyright
+## Attribution & Rights
 
-Developed for **La Victoria Foundation** © 2026. All rights reserved.
+Designed and developed as an engineering case study for **La Victoria Foundation** © 2026. All rights reserved.
