@@ -52,3 +52,7 @@ pgdata/
 *.swp
 .idea/
 .vscode/
+
+# Build & evaluation artifacts
+*.tsbuildinfo
+evaluate_*.json

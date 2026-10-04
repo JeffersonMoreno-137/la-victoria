@@ -13,6 +13,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
+      <head>
+        <link rel="stylesheet" href="/main.css" />
+      </head>
       <body>{children}</body>
     </html>
   );

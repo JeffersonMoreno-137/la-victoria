@@ -98,3 +98,5 @@ class FAQDocument(Base):
     content = Column(Text, nullable=False)
     embedding = Column(Vector(1536), nullable=True) # text-embedding-3-small dimension
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+

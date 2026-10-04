@@ -45,7 +45,7 @@ def upl_guardrail_node(state: Dict[str, Any]) -> Dict[str, Any]:
     if lang == "en":
         msg = "⚠️ Legal Notice (UPL Guardrail): As an AI assistant, I cannot provide legal opinions."
     else:
-        msg = "⚠️ Aviso Legal Importante: Como asistente virtual (Luna), tengo prohibido emitir dictámenes legales (UPL)."
+        msg = "⚠️ Aviso Legal Importante: Como asistente virtual (VictorIA), tengo prohibido emitir dictámenes legales (UPL)."
     return {
         "response_text": msg,
         "inline_keyboard_type": "branches"
